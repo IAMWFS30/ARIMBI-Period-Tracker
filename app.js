@@ -15,6 +15,9 @@ const I = {
     cloud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>',
     chevL: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>',
     chevR: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>',
+    heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
+    share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
+    link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
 };
 
 // ===== DATA STORE =====
@@ -311,6 +314,15 @@ R.settings = () => {
             <input type="number" value="${cfg.notifDays}" min="1" max="7" onchange="uCfg('notifDays',this.value)"></div>
     </div>
     <div class="card">
+        <div class="card-title">${I.heart} Partner Mode</div>
+        <p style="font-size:0.78rem;color:var(--muted);line-height:1.6;margin-bottom:14px">
+            Generate link untuk pasanganmu. Dia bisa lihat countdown haid & status kamu tanpa perlu login.
+        </p>
+        <button class="btn btn-primary" onclick="genPartnerLink()" ${!last() ? 'disabled style="opacity:0.5"' : ''}>
+            ${I.share} Generate Partner Link
+        </button>
+    </div>
+    <div class="card">
         <div class="card-title">${I.cloud} Notifikasi</div>
         <div class="s-row">
             <div><div class="sl">Push Notification</div>
@@ -357,12 +369,136 @@ function schedNotif() {
     }
 }
 
+// ===== PARTNER MODE =====
+function genPartnerLink() {
+    const L = last(); if (!L) return;
+    const periods = D.periods().slice(0, 3);
+    const moods = D.moods();
+    const td = ds(new Date());
+    const payload = {
+        p: periods,
+        c: avgC(),
+        m: moods[td] || null,
+        t: Date.now()
+    };
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    const url = `${window.location.origin}/partner.html?d=${encoded}`;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal-box">
+            <div class="partner-success-icon">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="var(--green-500)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <polyline points="22 4 12 14.01 9 11.01" stroke="var(--green-500)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <p class="modal-msg" style="margin-bottom:6px">Link berhasil dibuat!</p>
+            <p style="font-size:0.72rem;color:var(--muted);margin-bottom:18px">Kirim link ini ke pasanganmu</p>
+            <div class="partner-link-box"><span>${url.length > 60 ? url.substring(0, 60) + '...' : url}</span></div>
+            <div class="partner-actions">
+                <button class="partner-btn partner-btn-copy" onclick="copyPartnerLink('${url}')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy Link
+                </button>
+                <button class="partner-btn partner-btn-wa" onclick="sharePartnerWA('${url}')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"/></svg>
+                    WhatsApp
+                </button>
+            </div>
+            <button class="partner-btn-close" onclick="this.closest('.modal-overlay').classList.remove('show');setTimeout(()=>this.closest('.modal-overlay').remove(),250)">Tutup</button>
+        </div>`;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('show'));
+}
+
+function copyPartnerLink(url) {
+    navigator.clipboard.writeText(url).then(() => toast('Link di-copy!', 'success')).catch(() => toast('Gagal copy', 'error'));
+}
+function sharePartnerWA(url) {
+    const text = encodeURIComponent(`💖 Ini link buat kamu lihat jadwal haid aku:\n${url}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank');
+}
+
+// ===== PARTNER VIEW (check on load) =====
+function checkPartnerMode() {
+    if (!window.location.pathname.includes('partner.html')) return false;
+    const params = new URLSearchParams(window.location.search);
+    const data = params.get('d');
+    if (!data) return false;
+    try {
+        const payload = JSON.parse(decodeURIComponent(escape(atob(data))));
+        renderPartnerView(payload);
+        return true;
+    } catch (e) { return false; }
+}
+
+function renderPartnerView(data) {
+    const { p, c, m, t } = data;
+    if (!p || !p.length) return;
+    const L = p[0];
+    const next = addD(L.d, c);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const left = diffD(next, today);
+    const pct = Math.max(0, Math.min(100, ((c - left) / c) * 100));
+    const ov = addD(L.d, c - 14);
+    const fs = addD(ov, -5), fe = addD(ov, 1);
+
+    let statusNum, statusLbl, statusColor;
+    if (left > 0) { statusNum = left; statusLbl = 'hari lagi haid'; statusColor = 'var(--pink-600)'; }
+    else if (left >= -L.dur) { statusNum = '●'; statusLbl = 'sedang haid'; statusColor = '#EF5350'; }
+    else { statusNum = Math.abs(left); statusLbl = 'hari terlambat'; statusColor = '#FF6F00'; }
+
+    const moodText = m && m.mood ? m.mood : '—';
+    const symText = m && m.sym && m.sym.length ? m.sym.join(', ') : 'Tidak ada';
+    const lastUpdate = new Date(t).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+    // Hide normal app, show partner view
+    document.getElementById('app').innerHTML = `
+    <div class="header">
+        <div class="header-content">
+            <svg class="header-logo" width="36" height="36" viewBox="0 0 100 100" fill="none">
+                <g transform="translate(50,48)"><ellipse cx="0" cy="-18" rx="9" ry="18" fill="rgba(255,255,255,0.88)" transform="rotate(0)"/><ellipse cx="0" cy="-18" rx="9" ry="18" fill="rgba(255,255,255,0.88)" transform="rotate(72)"/><ellipse cx="0" cy="-18" rx="9" ry="18" fill="rgba(255,255,255,0.88)" transform="rotate(144)"/><ellipse cx="0" cy="-18" rx="9" ry="18" fill="rgba(255,255,255,0.88)" transform="rotate(216)"/><ellipse cx="0" cy="-18" rx="9" ry="18" fill="rgba(255,255,255,0.88)" transform="rotate(288)"/><circle cx="0" cy="0" r="6" fill="#FFD54F" opacity="0.9"/></g>
+            </svg>
+            <div><h1>ARIMBI</h1><p>Partner View 💖</p></div>
+        </div>
+    </div>
+    <main class="main" style="padding-bottom:40px">
+        <div class="card">
+            <div class="ring-wrap"><div class="ring" style="--p:${pct}"><div class="ring-text">
+                <div class="ring-num" style="color:${statusColor}">${statusNum}</div>
+                <div class="ring-lbl">${statusLbl}</div>
+            </div></div></div>
+            <div class="grid-2">
+                <div class="pred pred-a">${I.drop}<div class="v">${fmt(next)}</div><div class="l">Haid Berikutnya</div></div>
+                <div class="pred pred-b">${I.leaf}<div class="v">${fmt(fs)} – ${fmt(fe)}</div><div class="l">Masa Subur</div></div>
+                <div class="pred pred-c">${I.sun}<div class="v">${fmt(ov)}</div><div class="l">Ovulasi</div></div>
+                <div class="pred pred-d">${I.cloud}<div class="v">${c} hari</div><div class="l">Rata-rata Siklus</div></div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-title">${I.cloud} Mood & Gejala Hari Ini</div>
+            <div style="display:flex;gap:16px;align-items:center">
+                <div style="font-size:2rem">${moodText}</div>
+                <div style="font-size:0.78rem;color:var(--muted)">${symText}</div>
+            </div>
+        </div>
+        <div class="card" style="text-align:center">
+            <p style="font-size:0.7rem;color:var(--muted)">Terakhir diupdate: ${lastUpdate}</p>
+            <p style="font-size:0.68rem;color:var(--pink-400);margin-top:6px">Data ini read-only. Minta pasanganmu kirim link baru untuk update.</p>
+        </div>
+    </main>`;
+}
+
 // ===== SERVICE WORKER =====
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
 // ===== INIT =====
-buildNav();
-R.home();
-schedNotif();
+if (!checkPartnerMode()) {
+    buildNav();
+    R.home();
+    schedNotif();
+}

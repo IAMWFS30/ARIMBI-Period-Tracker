@@ -1,5 +1,5 @@
 const CACHE = 'arimbi-v3.1';
-const ASSETS = ['/', '/index.html', '/style.css', '/app.js', '/manifest.json', '/icons/icon-192.svg', '/icons/icon-512.svg'];
+const ASSETS = ['/', '/index.html', '/partner.html', '/style.css', '/app.js', '/manifest.json', '/icons/icon-192.svg', '/icons/icon-512.svg'];
 
 self.addEventListener('install', e => {
     e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));

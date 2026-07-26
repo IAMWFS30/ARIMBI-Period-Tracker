@@ -326,3 +326,45 @@ body {
     color: white; box-shadow: 0 4px 12px rgba(198,40,40,0.2);
 }
 .modal-confirm:active { transform: scale(0.96); }
+
+/* ======= PARTNER LINK MODAL ======= */
+.partner-success-icon {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: linear-gradient(135deg, #E8F5E9, #C8E6C9);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 18px; box-shadow: 0 4px 16px rgba(76, 175, 80, 0.15);
+}
+.partner-link-box {
+    background: #F8F9FA; border: 1.5px solid #E8E8E8;
+    border-radius: 10px; padding: 12px 14px;
+    margin-bottom: 20px;
+}
+.partner-link-box span {
+    font-size: 0.68rem; color: #888; font-family: 'SF Mono', 'Courier New', monospace;
+    word-break: break-all; line-height: 1.4;
+}
+.partner-actions {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;
+}
+.partner-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 14px 16px; border-radius: var(--r-sm); border: none;
+    font-size: 0.82rem; font-weight: 700; font-family: inherit;
+    cursor: pointer; transition: all 0.2s var(--ease); color: white;
+}
+.partner-btn:active { transform: scale(0.96); }
+.partner-btn-copy {
+    background: linear-gradient(135deg, var(--pink-500), var(--pink-600));
+    box-shadow: 0 4px 12px rgba(233, 30, 99, 0.2);
+}
+.partner-btn-wa {
+    background: linear-gradient(135deg, #25D366, #128C7E);
+    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.2);
+}
+.partner-btn-close {
+    display: block; width: 100%; padding: 13px; border: none;
+    background: none; color: var(--muted); font-size: 0.82rem;
+    font-weight: 600; font-family: inherit; cursor: pointer;
+    border-radius: var(--r-sm); transition: background 0.2s;
+}
+.partner-btn-close:active { background: var(--pink-50); }
