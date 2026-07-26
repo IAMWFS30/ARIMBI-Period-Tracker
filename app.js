@@ -53,6 +53,42 @@ function toast(msg) {
     setTimeout(() => t.classList.remove('show'), 2200);
 }
 
+// ===== CUSTOM MODAL =====
+function showModal(msg, onConfirm) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal-box">
+            <div class="modal-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--pink-500)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+            </div>
+            <p class="modal-msg">${msg}</p>
+            <div class="modal-actions">
+                <button class="modal-btn modal-cancel">Batal</button>
+                <button class="modal-btn modal-confirm">Hapus</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('show'));
+
+    overlay.querySelector('.modal-cancel').onclick = () => {
+        overlay.classList.remove('show');
+        setTimeout(() => overlay.remove(), 250);
+    };
+    overlay.querySelector('.modal-confirm').onclick = () => {
+        overlay.classList.remove('show');
+        setTimeout(() => { overlay.remove(); onConfirm(); }, 250);
+    };
+    overlay.addEventListener('click', e => {
+        if (e.target === overlay) {
+            overlay.classList.remove('show');
+            setTimeout(() => overlay.remove(), 250);
+        }
+    });
+}
+
 // ===== NAVIGATION =====
 const TABS = [
     { id: 'home', lbl: 'Home', ico: I.home },
@@ -242,15 +278,17 @@ R.history = () => {
     </div>`;
 };
 function delP(id) {
-    if (!confirm('Hapus record ini?')) return;
-    D.savePeriods(D.periods().filter(x => x.id !== id));
-    R.history(); toast('🗑️ Dihapus');
+    showModal('Hapus record ini?', () => {
+        D.savePeriods(D.periods().filter(x => x.id !== id));
+        R.history(); toast('🗑️ Dihapus');
+    });
 }
 function clearAll() {
-    if (!confirm('Yakin hapus SEMUA data?')) return;
-    localStorage.removeItem('arimbi_p');
-    localStorage.removeItem('arimbi_m');
-    R.history(); toast('🗑️ Semua data dihapus');
+    showModal('Yakin hapus semua data? Tindakan ini tidak bisa dibatalkan.', () => {
+        localStorage.removeItem('arimbi_p');
+        localStorage.removeItem('arimbi_m');
+        R.history(); toast('🗑️ Semua data dihapus');
+    });
 }
 
 // --- SETTINGS ---
