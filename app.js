@@ -45,48 +45,53 @@ const avgC = () => {
 };
 
 // ===== TOAST =====
-function toast(msg) {
-    let t = document.querySelector('.toast');
-    if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2200);
+function toast(msg, type = 'success') {
+    // Remove existing toast
+    const old = document.querySelector('.toast');
+    if (old) old.remove();
+
+    const icons = {
+        success: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`,
+        error: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+        warning: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+        info: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`,
+        delete: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
+    };
+
+    const t = document.createElement('div');
+    t.className = `toast toast-${type}`;
+    t.innerHTML = `<div class="toast-icon">${icons[type] || icons.success}</div><span class="toast-msg">${msg}</span>`;
+    document.body.appendChild(t);
+    requestAnimationFrame(() => t.classList.add('show'));
+    setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 2400);
 }
 
 // ===== CUSTOM MODAL =====
-function showModal(msg, onConfirm) {
+function showModal(msg, onConfirm, opts = {}) {
+    const { confirmText = 'Hapus', confirmColor = 'danger', icon = 'warning' } = opts;
+    const icons = {
+        warning: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke="var(--orange-500)"/><line x1="12" y1="8" x2="12" y2="12" stroke="var(--orange-500)"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="var(--orange-500)"/></svg>`,
+        delete: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--pink-500)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`,
+    };
+
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
         <div class="modal-box">
-            <div class="modal-icon">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--pink-500)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-            </div>
+            <div class="modal-icon-wrap">${icons[icon] || icons.warning}</div>
             <p class="modal-msg">${msg}</p>
             <div class="modal-actions">
                 <button class="modal-btn modal-cancel">Batal</button>
-                <button class="modal-btn modal-confirm">Hapus</button>
+                <button class="modal-btn modal-confirm">${confirmText}</button>
             </div>
         </div>`;
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('show'));
 
-    overlay.querySelector('.modal-cancel').onclick = () => {
-        overlay.classList.remove('show');
-        setTimeout(() => overlay.remove(), 250);
-    };
-    overlay.querySelector('.modal-confirm').onclick = () => {
-        overlay.classList.remove('show');
-        setTimeout(() => { overlay.remove(); onConfirm(); }, 250);
-    };
-    overlay.addEventListener('click', e => {
-        if (e.target === overlay) {
-            overlay.classList.remove('show');
-            setTimeout(() => overlay.remove(), 250);
-        }
-    });
+    const close = () => { overlay.classList.remove('show'); setTimeout(() => overlay.remove(), 250); };
+    overlay.querySelector('.modal-cancel').onclick = close;
+    overlay.querySelector('.modal-confirm').onclick = () => { close(); setTimeout(onConfirm, 250); };
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
 }
 
 // ===== NAVIGATION =====
@@ -232,14 +237,14 @@ R.log = () => {
 function savePeriod() {
     const d = document.getElementById('inD').value;
     const dur = parseInt(document.getElementById('inDur').value);
-    if (!d) return toast('⚠️ Pilih tanggal!');
-    if (dur < 2 || dur > 10) return toast('⚠️ Durasi 2–10 hari');
+    if (!d) return toast('Pilih tanggal dulu', 'warning');
+    if (dur < 2 || dur > 10) return toast('Durasi harus 2–10 hari', 'warning');
     const p = D.periods();
     p.push({ d, dur, id: Date.now() });
     p.sort((a, b) => new Date(b.d) - new Date(a.d));
     D.savePeriods(p);
     schedNotif();
-    toast('✅ Tersimpan!');
+    toast('Data haid tersimpan', 'success');
     setTimeout(() => nav('home'), 400);
 }
 function setMood(m) {
@@ -280,15 +285,15 @@ R.history = () => {
 function delP(id) {
     showModal('Hapus record ini?', () => {
         D.savePeriods(D.periods().filter(x => x.id !== id));
-        R.history(); toast('🗑️ Dihapus');
-    });
+        R.history(); toast('Record dihapus', 'delete');
+    }, { icon: 'delete', confirmText: 'Hapus' });
 }
 function clearAll() {
     showModal('Yakin hapus semua data? Tindakan ini tidak bisa dibatalkan.', () => {
         localStorage.removeItem('arimbi_p');
         localStorage.removeItem('arimbi_m');
-        R.history(); toast('🗑️ Semua data dihapus');
-    });
+        R.history(); toast('Semua data dihapus', 'delete');
+    }, { icon: 'delete', confirmText: 'Hapus Semua' });
 }
 
 // --- SETTINGS ---
@@ -322,15 +327,15 @@ R.settings = () => {
         </p>
     </div>`;
 };
-function uCfg(k, v) { const c = D.cfg(); c[k] = parseInt(v); D.saveCfg(c); toast('✅ Disimpan'); }
+function uCfg(k, v) { const c = D.cfg(); c[k] = parseInt(v); D.saveCfg(c); toast('Pengaturan disimpan', 'success'); }
 async function togNotif(el) {
     if (Notification.permission === 'granted') {
-        toast('ℹ️ Nonaktifkan lewat Settings browser');
+        toast('Nonaktifkan lewat Settings browser', 'info');
         return;
     }
     const p = await Notification.requestPermission();
-    if (p === 'granted') { el.classList.add('on'); schedNotif(); R.settings(); toast('🔔 Notifikasi aktif!'); }
-    else toast('⚠️ Izin ditolak');
+    if (p === 'granted') { el.classList.add('on'); schedNotif(); R.settings(); toast('Notifikasi aktif!', 'success'); }
+    else toast('Izin notifikasi ditolak', 'error');
 }
 
 // ===== NOTIFICATION =====

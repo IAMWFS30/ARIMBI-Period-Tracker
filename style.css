@@ -248,13 +248,31 @@ body {
 /* ======= MISC ======= */
 .sep { height: 1px; background: var(--border); margin: 16px 0; }
 .toast {
-    position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px);
-    background: var(--pink-700); color: white; padding: 12px 24px;
-    border-radius: 30px; font-size: 0.82rem; font-weight: 600;
-    box-shadow: 0 8px 24px rgba(136,14,79,0.25); z-index: 999;
-    transition: transform 0.4s var(--ease); pointer-events: none;
+    position: fixed; top: 24px; left: 50%; z-index: 9998;
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 22px 14px 16px;
+    border-radius: 16px; font-size: 0.84rem; font-weight: 600;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+    pointer-events: none; white-space: nowrap;
+    transform: translateX(-50%) translateY(-100px);
+    opacity: 0; transition: all 0.35s var(--ease);
 }
-.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+.toast-icon {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.toast-msg { color: var(--text); }
+.toast-success { background: white; border: 1.5px solid var(--green-100); }
+.toast-success .toast-icon { background: var(--green-500); }
+.toast-error { background: white; border: 1.5px solid #FFCDD2; }
+.toast-error .toast-icon { background: #EF5350; }
+.toast-warning { background: white; border: 1.5px solid var(--orange-100); }
+.toast-warning .toast-icon { background: var(--orange-500); }
+.toast-info { background: white; border: 1.5px solid var(--pink-100); }
+.toast-info .toast-icon { background: var(--pink-500); }
+.toast-delete { background: white; border: 1.5px solid #FFCDD2; }
+.toast-delete .toast-icon { background: #78909C; }
 
 /* ======= RESPONSIVE ======= */
 @media (min-width: 480px) {
@@ -282,6 +300,12 @@ body {
 }
 .modal-overlay.show .modal-box { transform: scale(1); }
 .modal-icon { margin-bottom: 16px; }
+.modal-icon-wrap {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--orange-50); border: 2px solid var(--orange-100);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 18px;
+}
 .modal-msg {
     font-size: 0.9rem; font-weight: 600; color: var(--text);
     line-height: 1.5; margin-bottom: 24px;
