@@ -18,6 +18,12 @@ const I = {
     heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
     share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
     link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+    edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>',
+    cart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>',
+    chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+    trendUp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
+    trendDown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>',
+    equal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/></svg>',
 };
 
 // ===== DATA STORE =====
@@ -28,7 +34,11 @@ const D = {
     savePeriods: v => D.set('arimbi_p', v),
     moods: () => D.get('arimbi_m') || {},
     saveMoods: v => D.set('arimbi_m', v),
-    cfg: () => D.get('arimbi_c') || { notifDays: 2, cycle: 28, dur: 5 },
+    cfg: () => {
+        // Merge stored config with defaults so new keys appear for existing users.
+        const stored = D.get('arimbi_c') || {};
+        return { notifDays: 2, cycle: 28, dur: 5, padDays: 3, padReminder: true, ...stored };
+    },
     saveCfg: v => D.set('arimbi_c', v),
 };
 
@@ -39,13 +49,112 @@ const ds = d => d.toISOString().split('T')[0];
 const fmt = d => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
 const fmtL = d => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 const last = () => { const p = D.periods(); return p[0] || null; };
-const avgC = () => {
+
+// Cycle lengths between consecutive records, newest first.
+// e.g. cycleGaps()[0] = gap between the 2 most recent periods.
+const cycleGaps = () => {
     const p = D.periods();
-    if (p.length < 2) return D.cfg().cycle;
-    let t = 0;
-    for (let i = 0; i < p.length - 1; i++) t += diffD(p[i].d, p[i + 1].d);
-    return Math.round(t / (p.length - 1));
+    const gaps = [];
+    for (let i = 0; i < p.length - 1; i++) gaps.push(diffD(p[i].d, p[i + 1].d));
+    return gaps;
 };
+
+// Weighted average cycle length — recent cycles matter more.
+// Falls back to the configured default when there isn't enough history.
+const avgC = () => {
+    const gaps = cycleGaps();
+    if (!gaps.length) return D.cfg().cycle;
+    // Use up to the 6 most recent gaps, weighted so newest = highest weight.
+    const use = gaps.slice(0, 6);
+    let wSum = 0, w = 0;
+    use.forEach((g, i) => { const weight = use.length - i; wSum += g * weight; w += weight; });
+    return Math.round(wSum / w);
+};
+
+// Cycle normality classification (medical rule of thumb: 21–35 days is normal).
+// Returns { key, label, color, emoji } for a given cycle length in days.
+function cycleStatus(len) {
+    if (len == null) return { key: 'na', label: 'Data pertama', color: 'var(--muted)', emoji: '•' };
+    if (len < 21) return { key: 'short', label: 'Lebih cepat', color: 'var(--orange-500)', emoji: '⚠️' };
+    if (len > 35) return { key: 'long', label: 'Lebih lama', color: 'var(--orange-500)', emoji: '⚠️' };
+    return { key: 'normal', label: 'Normal', color: 'var(--green-500)', emoji: '✅' };
+}
+
+// Compare actual cycle length vs the predicted/average cycle.
+// Returns a human-readable note about the deviation.
+function deviationNote(actualLen, predictedLen) {
+    if (actualLen == null || predictedLen == null) return null;
+    const diff = actualLen - predictedLen;
+    const abs = Math.abs(diff);
+    if (abs <= 2) return { key: 'ontime', label: 'Sesuai prediksi', color: 'var(--green-500)' };
+    const dir = diff > 0 ? 'lebih lambat' : 'lebih cepat';
+    return { key: diff > 0 ? 'late' : 'early', label: `${abs} hari ${dir} dari prediksi`, color: 'var(--orange-500)' };
+}
+
+// Status of a recorded period relative to today.
+// 'ongoing' = still bleeding, 'done' = finished, 'upcoming' = starts in the future.
+function periodPhase(period) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const start = new Date(period.d); start.setHours(0, 0, 0, 0);
+    const end = addD(start, period.dur - 1); end.setHours(0, 0, 0, 0);
+    if (today < start) return 'upcoming';
+    if (today > end) return 'done';
+    return 'ongoing';
+}
+
+// Build a monthly recap: each period becomes a row (newest first) with its
+// cycle length, the month-over-month delta, and normality — plus overall stats.
+// Returns { rows, stats } or null when there's no data.
+function cycleRecap() {
+    const p = D.periods();            // newest-first
+    if (!p.length) return null;
+
+    // Chronological (oldest-first) so "cycle length" and month-over-month deltas
+    // read naturally, then we present newest-first.
+    const chrono = [...p].reverse();
+    const rows = chrono.map((rec, i) => {
+        // Cycle length = gap from the PREVIOUS (older) period start to this one.
+        const cyc = i > 0 ? diffD(rec.d, chrono[i - 1].d) : null;
+        return {
+            id: rec.id,
+            date: rec.d,
+            dur: rec.dur,
+            cycle: cyc,
+            status: cycleStatus(cyc),
+            monthLabel: new Date(rec.d).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }),
+            monthShort: new Date(rec.d).toLocaleDateString('id-ID', { month: 'short' }),
+        };
+    });
+
+    // Month-over-month delta (this cycle vs the previous month's cycle).
+    rows.forEach((r, i) => {
+        const prev = rows[i - 1];
+        if (r.cycle != null && prev && prev.cycle != null) {
+            r.delta = r.cycle - prev.cycle;
+        } else {
+            r.delta = null;
+        }
+    });
+
+    // Overall stats across all measurable cycles.
+    const cycles = rows.map(r => r.cycle).filter(c => c != null);
+    const durations = rows.map(r => r.dur);
+    const normalCount = cycles.filter(c => c >= 21 && c <= 35).length;
+    const stats = {
+        count: p.length,
+        cycleCount: cycles.length,
+        minCycle: cycles.length ? Math.min(...cycles) : null,
+        maxCycle: cycles.length ? Math.max(...cycles) : null,
+        avgCycle: cycles.length ? Math.round(cycles.reduce((a, b) => a + b, 0) / cycles.length) : null,
+        avgDur: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null,
+        regularity: cycles.length ? Math.round((normalCount / cycles.length) * 100) : null,
+        // Variability: max-min spread. Small spread => predictable cycle.
+        spread: cycles.length ? Math.max(...cycles) - Math.min(...cycles) : null,
+    };
+
+    // Present newest-first for the UI.
+    return { rows: [...rows].reverse(), stats };
+}
 
 // ===== TOAST =====
 function toast(msg, type = 'success') {
@@ -144,6 +253,16 @@ R.home = () => {
     else if (left >= -L.dur) { num = '●'; lbl = 'sedang haid'; }
     else { num = Math.abs(left); lbl = 'hari terlambat'; }
 
+    // Latest cycle status — compare the most recent actual cycle vs predicted
+    const gaps = cycleGaps();
+    const latestGap = gaps.length ? gaps[0] : null;
+    const cStatus = cycleStatus(latestGap);
+    const devNote = deviationNote(latestGap, c);
+
+    // Cycle regularity summary
+    const normalCount = gaps.filter(g => g >= 21 && g <= 35).length;
+    const regularity = gaps.length ? Math.round((normalCount / gaps.length) * 100) : 100;
+
     el.innerHTML = `
     <div class="card">
         <div class="ring-wrap"><div class="ring" style="--p:${pct}"><div class="ring-text">
@@ -156,6 +275,23 @@ R.home = () => {
             <div class="pred pred-d">${I.cloud}<div class="v">${fmt(pms)}</div><div class="l">PMS Mulai</div></div>
         </div>
     </div>
+    ${latestGap != null ? `<div class="card">
+        <div class="card-title">${I.pulse} Analisis Siklus Terakhir</div>
+        <div class="cycle-analysis">
+            <div class="ca-row">
+                <span class="ca-lbl">Siklus terakhir</span>
+                <span class="ca-val" style="color:${cStatus.color}">${cStatus.emoji} ${latestGap} hari — ${cStatus.label}</span>
+            </div>
+            ${devNote ? `<div class="ca-row">
+                <span class="ca-lbl">Vs prediksi (${c} hari)</span>
+                <span class="ca-val" style="color:${devNote.color}">${devNote.label}</span>
+            </div>` : ''}
+            <div class="ca-row">
+                <span class="ca-lbl">Keteraturan</span>
+                <span class="ca-val">${regularity}% siklus normal (21–35 hari)</span>
+            </div>
+        </div>
+    </div>` : ''}
     <div class="card">
         <div class="card-title">${I.pulse} Statistik</div>
         <div class="stats">
@@ -178,25 +314,42 @@ R.calendar = () => {
     const fd = new Date(cY, cM, 1).getDay();
     const today = new Date();
     const periods = D.periods();
+    const c = avgC();
+
+    // actualSet = real logged periods (confirmed). predSet = future predictions only.
+    const actualSet = new Set();
     const hSet = new Set(), sSet = new Set(), oSet = new Set();
 
+    // 1) Mark every actually-recorded period as confirmed haid.
     periods.forEach(p => {
-        const c = avgC();
-        for (let k = 0; k < 6; k++) {
-            const st = addD(p.d, c * k);
-            for (let i = 0; i < p.dur; i++) hSet.add(ds(addD(st, i)));
+        for (let i = 0; i < p.dur; i++) actualSet.add(ds(addD(p.d, i)));
+    });
+
+    // 2) Project predictions FORWARD from the most recent period only.
+    //    This avoids overlapping/incorrect marks from projecting every old record.
+    const L = periods[0];
+    if (L) {
+        const dur = L.dur;
+        for (let k = 1; k <= 6; k++) {
+            const st = addD(L.d, c * k);
+            for (let i = 0; i < dur; i++) hSet.add(ds(addD(st, i)));
+        }
+        // Fertile window + ovulation projected from the last actual + each predicted cycle.
+        for (let k = 0; k <= 6; k++) {
+            const st = addD(L.d, c * k);
             const ov = addD(st, c - 14);
             oSet.add(ds(ov));
             for (let i = -5; i <= 1; i++) sSet.add(ds(addD(ov, i)));
         }
-    });
+    }
 
     let g = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'].map(x => `<div class="dn">${x}</div>`).join('');
     for (let i = 0; i < fd; i++) g += '<div class="d x"></div>';
     for (let d = 1; d <= dim; d++) {
         const s = `${cY}-${String(cM + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         let cls = 'd';
-        if (hSet.has(s)) cls += ' haid';
+        if (actualSet.has(s)) cls += ' haid haid-actual';       // confirmed, solid
+        else if (hSet.has(s)) cls += ' haid haid-pred';         // predicted, dashed
         else if (oSet.has(s)) cls += ' ovul';
         else if (sSet.has(s)) cls += ' subur';
         if (today.getDate() === d && today.getMonth() === cM && today.getFullYear() === cY) cls += ' now';
@@ -211,7 +364,7 @@ R.calendar = () => {
             <button class="cal-btn" onclick="calNext()">${I.chevR}</button>
         </div>
         <div class="cal">${g}</div>
-        <div class="cal-legend"><i class="lh">Haid</i><i class="ls">Subur</i><i class="lo">Ovulasi</i></div>
+        <div class="cal-legend"><i class="lh">Haid tercatat</i><i class="lhp">Prediksi</i><i class="ls">Subur</i><i class="lo">Ovulasi</i></div>
     </div>`;
 };
 
@@ -265,6 +418,112 @@ function toggleSym(s) {
     D.saveMoods(moods); R.log();
 }
 
+// --- MONTHLY RECAP (rendered inside History) ---
+function renderRecap() {
+    const recap = cycleRecap();
+    if (!recap) return '';
+    const { rows, stats } = recap;
+
+    // Need at least one measurable cycle (>=2 periods) for a meaningful recap.
+    if (stats.cycleCount < 1) {
+        return `<div class="card recap-card">
+            <div class="card-title">${I.chart} Rekap Bulanan</div>
+            <div class="recap-empty">
+                <p>Catat minimal 2 kali haid untuk melihat perbandingan siklus antar bulan.</p>
+            </div>
+        </div>`;
+    }
+
+    // ----- Summary stat tiles -----
+    const summary = `
+    <div class="recap-stats">
+        <div class="rstat rstat-avg">
+            <div class="rstat-num">${stats.avgCycle}<span>hari</span></div>
+            <div class="rstat-lbl">Rata-rata Siklus</div>
+        </div>
+        <div class="rstat rstat-range">
+            <div class="rstat-num">${stats.minCycle}–${stats.maxCycle}</div>
+            <div class="rstat-lbl">Rentang (${stats.spread} hari)</div>
+        </div>
+        <div class="rstat rstat-dur">
+            <div class="rstat-num">${stats.avgDur}<span>hari</span></div>
+            <div class="rstat-lbl">Durasi Haid</div>
+        </div>
+        <div class="rstat rstat-reg">
+            <div class="rstat-num">${stats.regularity}<span>%</span></div>
+            <div class="rstat-lbl">Keteraturan</div>
+        </div>
+    </div>`;
+
+    // ----- Trend bar chart (oldest -> newest, left to right) -----
+    // Only cycles that have a measurable length are plotted.
+    const chartRows = [...rows].reverse().filter(r => r.cycle != null);
+    const maxCyc = Math.max(...chartRows.map(r => r.cycle), 35);
+    const bars = chartRows.map(r => {
+        const h = Math.round((r.cycle / maxCyc) * 100);
+        const color = r.status.key === 'normal' ? 'var(--green-500)'
+            : r.status.key === 'na' ? 'var(--pink-200)' : 'var(--orange-500)';
+        return `<div class="rbar-col">
+            <div class="rbar-val">${r.cycle}</div>
+            <div class="rbar-track"><div class="rbar-fill" style="height:${h}%;background:${color}"></div></div>
+            <div class="rbar-lbl">${r.monthShort}</div>
+        </div>`;
+    }).join('');
+
+    // Normal band reference (21–35). Positioned relative to maxCyc.
+    const bandTop = 100 - Math.round((35 / maxCyc) * 100);
+    const bandH = Math.round(((35 - 21) / maxCyc) * 100);
+    const chart = chartRows.length ? `
+    <div class="recap-chart">
+        <div class="rchart-head">
+            <span class="rchart-title">Tren Panjang Siklus</span>
+            <span class="rchart-legend"><i class="rl-normal"></i>Normal (21–35 hari)</span>
+        </div>
+        <div class="rchart-plot">
+            <div class="rchart-band" style="top:${bandTop}%;height:${bandH}%"></div>
+            <div class="rchart-bars">${bars}</div>
+        </div>
+    </div>` : '';
+
+    // ----- Month-over-month comparison rows -----
+    const monthRows = rows.map(r => {
+        let deltaHtml;
+        if (r.cycle == null) {
+            deltaHtml = `<span class="rcmp-delta rcmp-first">Siklus pertama</span>`;
+        } else if (r.delta == null) {
+            deltaHtml = `<span class="rcmp-delta rcmp-base">—</span>`;
+        } else if (r.delta === 0) {
+            deltaHtml = `<span class="rcmp-delta rcmp-same">${I.equal} Sama seperti bulan lalu</span>`;
+        } else if (r.delta > 0) {
+            deltaHtml = `<span class="rcmp-delta rcmp-up">${I.trendUp} +${r.delta} hari lebih panjang</span>`;
+        } else {
+            deltaHtml = `<span class="rcmp-delta rcmp-down">${I.trendDown} ${Math.abs(r.delta)} hari lebih pendek</span>`;
+        }
+        const cycText = r.cycle != null
+            ? `<span class="rcmp-cyc" style="color:${r.status.color}">${r.status.emoji} ${r.cycle} hari</span>`
+            : `<span class="rcmp-cyc rcmp-na">Belum ada pembanding</span>`;
+        return `<div class="rcmp-row">
+            <div class="rcmp-month">
+                <div class="rcmp-mo">${r.monthLabel}</div>
+                <div class="rcmp-sub">Mulai ${fmt(r.date)} · Durasi ${r.dur} hari</div>
+            </div>
+            <div class="rcmp-right">
+                ${cycText}
+                ${deltaHtml}
+            </div>
+        </div>`;
+    }).join('');
+
+    return `<div class="card recap-card">
+        <div class="card-title">${I.chart} Rekap Bulanan</div>
+        ${summary}
+        ${chart}
+        <div class="recap-divider"></div>
+        <div class="recap-cmp-title">Perbandingan Antar Bulan</div>
+        <div class="recap-cmp">${monthRows}</div>
+    </div>`;
+}
+
 // --- HISTORY ---
 R.history = () => {
     const p = D.periods(), el = document.getElementById('page-history');
@@ -276,13 +535,40 @@ R.history = () => {
         <div class="card-title">${I.pulse} Riwayat Siklus</div>
         ${p.map((x, i) => {
             const end = addD(x.d, x.dur - 1);
+            // Cycle length = gap from THIS period to the NEXT older one.
             const cyc = i < p.length - 1 ? diffD(x.d, p[i + 1].d) : null;
-            return `<div class="hist"><div>
+            const st = cycleStatus(cyc);
+            const phase = periodPhase(x);
+            const phaseBadge = phase === 'ongoing'
+                ? `<span class="badge badge-ongoing">Sedang berlangsung</span>`
+                : phase === 'upcoming'
+                    ? `<span class="badge badge-upcoming">Akan datang</span>`
+                    : `<span class="badge badge-done">Selesai</span>`;
+            const cycBadge = cyc != null
+                ? `<span class="badge" style="background:${st.color}1a;color:${st.color}">${st.emoji} ${st.label}</span>`
+                : `<span class="badge badge-first">Data pertama</span>`;
+            return `<div class="hist"><div style="flex:1;min-width:0">
                 <div class="dt">${fmtL(x.d)} — ${fmt(end)}</div>
                 <div class="mt">Durasi ${x.dur} hari${cyc ? ` · Siklus ${cyc} hari` : ''}</div>
-            </div><button class="x-btn" onclick="delP(${x.id})">✕</button></div>`;
+                <div class="hist-badges">${phaseBadge}${cycBadge}</div>
+            </div><div class="hist-actions">
+                <button class="edit-btn" onclick="editP(${x.id})" aria-label="Edit record">${I.edit}</button>
+                <button class="x-btn" onclick="delP(${x.id})" aria-label="Hapus record">✕</button>
+            </div></div>`;
         }).join('')}
         <button class="btn btn-danger" onclick="clearAll()">Hapus Semua</button>
+    </div>
+    ${renderRecap()}
+    <div class="card">
+        <div class="card-title">${I.pulse} Tentang Siklus Normal</div>
+        <p style="font-size:0.76rem;color:var(--muted);line-height:1.7">
+            Siklus haid normal berkisar <strong style="color:var(--pink-700)">21–35 hari</strong>
+            (dihitung dari hari pertama haid ke hari pertama haid berikutnya).<br><br>
+            <span style="color:var(--green-500)">✅ Normal</span> — siklus dalam rentang 21–35 hari.<br>
+            <span style="color:var(--orange-500)">⚠️ Lebih cepat / lebih lama</span> — sesekali wajar, tapi kalau
+            sering berulang atau disertai keluhan, sebaiknya konsultasi ke bidan/dokter.<br><br>
+            <em>Catatan: aplikasi ini bantu memantau pola, bukan pengganti pemeriksaan medis.</em>
+        </p>
     </div>`;
 };
 function delP(id) {
@@ -290,6 +576,58 @@ function delP(id) {
         D.savePeriods(D.periods().filter(x => x.id !== id));
         R.history(); toast('Record dihapus', 'delete');
     }, { icon: 'delete', confirmText: 'Hapus' });
+}
+
+// Edit an existing period record — change its start date &/or duration.
+// Re-sorts and re-renders so predictions immediately reflect the correction.
+function editP(id) {
+    const rec = D.periods().find(x => x.id === id);
+    if (!rec) return;
+    const todayStr = ds(new Date());
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal-box" style="text-align:left">
+            <div style="text-align:center;margin-bottom:6px">
+                <div class="modal-icon-wrap" style="background:var(--pink-50);border-color:var(--pink-100)">
+                    <span style="color:var(--pink-500)">${I.edit}</span>
+                </div>
+            </div>
+            <p class="modal-msg" style="margin-bottom:18px;text-align:center">Edit Data Haid</p>
+            <div class="field"><label>Tanggal Mulai</label>
+                <input type="date" id="edD" value="${rec.d}" max="${todayStr}"></div>
+            <div class="field"><label>Durasi Haid (hari)</label>
+                <input type="number" id="edDur" value="${rec.dur}" min="2" max="10"></div>
+            <div class="modal-actions" style="margin-top:8px">
+                <button class="modal-btn modal-cancel">Batal</button>
+                <button class="modal-btn modal-confirm" style="background:linear-gradient(135deg,var(--pink-500),var(--pink-600))">Simpan</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('show'));
+
+    const close = () => { overlay.classList.remove('show'); setTimeout(() => overlay.remove(), 250); };
+    overlay.querySelector('.modal-cancel').onclick = close;
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    overlay.querySelector('.modal-confirm').onclick = () => {
+        const newD = overlay.querySelector('#edD').value;
+        const newDur = parseInt(overlay.querySelector('#edDur').value);
+        if (!newD) return toast('Pilih tanggal dulu', 'warning');
+        if (isNaN(newDur) || newDur < 2 || newDur > 10) return toast('Durasi harus 2–10 hari', 'warning');
+        // Prevent a future start date (can't have a period that hasn't happened).
+        if (new Date(newD) > new Date(todayStr)) return toast('Tanggal tidak boleh di masa depan', 'warning');
+        const p = D.periods();
+        const item = p.find(x => x.id === id);
+        if (!item) return close();
+        item.d = newD; item.dur = newDur;
+        p.sort((a, b) => new Date(b.d) - new Date(a.d));
+        D.savePeriods(p);
+        schedNotif();
+        close();
+        R.history();
+        toast('Data haid diperbarui', 'success');
+    };
 }
 function clearAll() {
     showModal('Yakin hapus semua data? Tindakan ini tidak bisa dibatalkan.', () => {
@@ -312,6 +650,18 @@ R.settings = () => {
             <input type="number" value="${cfg.dur}" min="2" max="10" onchange="uCfg('dur',this.value)"></div>
         <div class="field"><label>Reminder (hari sebelum haid)</label>
             <input type="number" value="${cfg.notifDays}" min="1" max="7" onchange="uCfg('notifDays',this.value)"></div>
+    </div>
+    <div class="card">
+        <div class="card-title">${I.cart} Pengingat Beli Pembalut</div>
+        <div class="s-row">
+            <div><div class="sl">Ingatkan beli pembalut</div>
+            <div class="sd">Notifikasi lebih awal biar sempat stok sebelum haid</div></div>
+            <div class="sw${cfg.padReminder ? ' on' : ''}" onclick="togPad(this)"></div>
+        </div>
+        <div class="field" style="margin-top:12px${cfg.padReminder ? '' : ';opacity:0.5;pointer-events:none'}" id="padDaysField">
+            <label>Ingatkan berapa hari sebelum haid</label>
+            <input type="number" value="${cfg.padDays}" min="1" max="10" onchange="uCfg('padDays',this.value)">
+        </div>
     </div>
     <div class="card">
         <div class="card-title">${I.heart} Partner Mode</div>
@@ -339,7 +689,16 @@ R.settings = () => {
         </p>
     </div>`;
 };
-function uCfg(k, v) { const c = D.cfg(); c[k] = parseInt(v); D.saveCfg(c); toast('Pengaturan disimpan', 'success'); }
+function uCfg(k, v) { const c = D.cfg(); c[k] = parseInt(v); D.saveCfg(c); schedNotif(); toast('Pengaturan disimpan', 'success'); }
+function togPad(el) {
+    const c = D.cfg();
+    c.padReminder = !c.padReminder;
+    D.saveCfg(c);
+    el.classList.toggle('on');
+    schedNotif();
+    R.settings();
+    toast(c.padReminder ? 'Pengingat pembalut aktif' : 'Pengingat pembalut nonaktif', c.padReminder ? 'success' : 'info');
+}
 async function togNotif(el) {
     if (Notification.permission === 'granted') {
         toast('Nonaktifkan lewat Settings browser', 'info');
@@ -356,10 +715,31 @@ function schedNotif() {
     const L = last(); if (!L) return;
     const cfg = D.cfg();
     const next = addD(L.d, avgC());
+    const now = new Date();
+
+    // Clear any previously scheduled timers so re-scheduling doesn't stack up.
+    if (window._nt) clearTimeout(window._nt);
+    if (window._ntPad) clearTimeout(window._ntPad);
+
+    // 1) Pad-buying reminder — fires EARLIER (padDays before) so there's time to
+    //    stock up before bleeding starts. Anticipates being caught without pads.
+    if (cfg.padReminder) {
+        const padAt = addD(next, -cfg.padDays);
+        const padDelay = padAt - now;
+        if (padDelay > 0) {
+            window._ntPad = setTimeout(() => {
+                new Notification('🛒 ARIMBI — Ingat Pembalut', {
+                    body: `Haid diperkirakan ${cfg.padDays} hari lagi (${fmt(next)}). Yuk cek & beli stok pembalut dulu biar nggak kehabisan 💕`,
+                    icon: 'icons/icon-192.svg', tag: 'arimbi-pad-reminder'
+                });
+            }, padDelay);
+        }
+    }
+
+    // 2) Haid reminder — fires closer to the predicted date.
     const at = addD(next, -cfg.notifDays);
-    const delay = at - new Date();
+    const delay = at - now;
     if (delay > 0) {
-        if (window._nt) clearTimeout(window._nt);
         window._nt = setTimeout(() => {
             new Notification('🌸 ARIMBI', {
                 body: `Haid diperkirakan ${cfg.notifDays} hari lagi (${fmt(next)})`,

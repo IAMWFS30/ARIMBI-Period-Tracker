@@ -149,19 +149,156 @@ body {
     transition: background 0.15s, color 0.15s;
 }
 .cal .d.haid { background: var(--pink-300); color: white; font-weight: 700; }
+/* Confirmed (actually logged) period — solid fill */
+.cal .d.haid-actual { background: var(--pink-400); color: white; }
+/* Predicted future period — lighter fill + dashed outline */
+.cal .d.haid-pred {
+    background: var(--pink-100); color: var(--pink-700);
+    box-shadow: inset 0 0 0 1.5px var(--pink-300);
+}
 .cal .d.subur { background: var(--green-100); color: #1B5E20; font-weight: 600; }
 .cal .d.ovul { background: #FFD54F; color: #E65100; font-weight: 700; }
 .cal .d.now { box-shadow: inset 0 0 0 2.5px var(--pink-500); font-weight: 700; }
+.cal .d.haid-pred.now { box-shadow: inset 0 0 0 2.5px var(--pink-500); }
 .cal .d.x { visibility: hidden; }
-.cal-legend { display: flex; gap: 14px; justify-content: center; margin-top: 14px; }
+.cal-legend { display: flex; gap: 12px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
 .cal-legend i {
     display: flex; align-items: center; gap: 5px;
     font-style: normal; font-size: 0.65rem; color: var(--muted); font-weight: 600;
 }
 .cal-legend i::before { content: ''; width: 9px; height: 9px; border-radius: 50%; }
-.cal-legend .lh::before { background: var(--pink-300); }
+.cal-legend .lh::before { background: var(--pink-400); }
+.cal-legend .lhp::before { background: var(--pink-100); box-shadow: inset 0 0 0 1.5px var(--pink-300); }
 .cal-legend .ls::before { background: var(--green-100); }
 .cal-legend .lo::before { background: #FFD54F; }
+
+/* ======= CYCLE ANALYSIS (Home) ======= */
+.cycle-analysis { display: flex; flex-direction: column; gap: 10px; }
+.ca-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    font-size: 0.76rem;
+}
+.ca-row .ca-lbl { color: var(--muted); font-weight: 500; flex-shrink: 0; }
+.ca-row .ca-val { font-weight: 700; text-align: right; }
+
+/* ======= BADGES (History) ======= */
+.hist-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 3px 9px; border-radius: 20px;
+    font-size: 0.62rem; font-weight: 700; line-height: 1.3;
+}
+.badge-ongoing { background: rgba(233,30,99,0.12); color: var(--pink-600); }
+.badge-done { background: rgba(123,107,127,0.12); color: var(--muted); }
+.badge-upcoming { background: var(--purple-50); color: var(--purple-500); }
+.badge-first { background: rgba(123,107,127,0.1); color: var(--muted); }
+
+/* ======= MONTHLY RECAP ======= */
+.recap-card { overflow: hidden; }
+.recap-empty { text-align: center; padding: 18px 8px; }
+.recap-empty p { font-size: 0.78rem; color: var(--muted); line-height: 1.6; }
+
+/* --- Summary stat tiles --- */
+.recap-stats {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;
+}
+.rstat {
+    position: relative; padding: 16px 14px; border-radius: var(--r-md);
+    overflow: hidden; border: 1px solid var(--border);
+}
+.rstat::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%;
+}
+.rstat-num {
+    font-size: 1.5rem; font-weight: 800; line-height: 1; color: var(--text);
+    display: flex; align-items: baseline; gap: 3px;
+}
+.rstat-num span { font-size: 0.72rem; font-weight: 600; color: var(--muted); }
+.rstat-lbl { font-size: 0.64rem; color: var(--muted); font-weight: 600; margin-top: 6px; letter-spacing: 0.2px; }
+.rstat-avg   { background: var(--pink-50); }
+.rstat-avg::before { background: var(--pink-500); }
+.rstat-avg .rstat-num { color: var(--pink-700); }
+.rstat-range { background: var(--purple-50); }
+.rstat-range::before { background: var(--purple-500); }
+.rstat-range .rstat-num { color: var(--purple-500); }
+.rstat-dur   { background: var(--orange-50); }
+.rstat-dur::before { background: var(--orange-500); }
+.rstat-dur .rstat-num { color: #E65100; }
+.rstat-reg   { background: var(--green-50); }
+.rstat-reg::before { background: var(--green-500); }
+.rstat-reg .rstat-num { color: #1B5E20; }
+
+/* --- Trend bar chart --- */
+.recap-chart { margin-bottom: 8px; }
+.rchart-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px; flex-wrap: wrap; gap: 6px;
+}
+.rchart-title { font-size: 0.74rem; font-weight: 700; color: var(--pink-700); }
+.rchart-legend {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 0.6rem; color: var(--muted); font-weight: 600;
+}
+.rchart-legend i { width: 14px; height: 8px; border-radius: 3px; }
+.rchart-legend .rl-normal { background: var(--green-100); border: 1px solid var(--green-500); }
+.rchart-plot {
+    position: relative; background: var(--pink-50);
+    border-radius: var(--r-sm); padding: 12px 8px 4px;
+}
+/* Shaded "normal" reference band behind the bars */
+.rchart-band {
+    position: absolute; left: 0; right: 0;
+    background: rgba(76,175,80,0.1);
+    border-top: 1px dashed rgba(76,175,80,0.4);
+    border-bottom: 1px dashed rgba(76,175,80,0.4);
+    pointer-events: none; z-index: 0;
+}
+.rchart-bars {
+    position: relative; z-index: 1;
+    display: flex; align-items: flex-end; justify-content: space-around;
+    gap: 4px; height: 120px;
+}
+.rbar-col {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    height: 100%; justify-content: flex-end; gap: 4px; min-width: 0;
+}
+.rbar-val { font-size: 0.62rem; font-weight: 700; color: var(--text); }
+.rbar-track { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; }
+.rbar-fill {
+    width: 62%; max-width: 24px; border-radius: 6px 6px 2px 2px;
+    min-height: 4px; transition: height 0.5s var(--ease);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+.rbar-lbl {
+    font-size: 0.58rem; font-weight: 600; color: var(--muted);
+    text-transform: capitalize; white-space: nowrap;
+}
+
+.recap-divider { height: 1px; background: var(--border); margin: 18px 0 16px; }
+
+/* --- Month-over-month comparison --- */
+.recap-cmp-title { font-size: 0.74rem; font-weight: 700; color: var(--pink-700); margin-bottom: 12px; }
+.recap-cmp { display: flex; flex-direction: column; gap: 8px; }
+.rcmp-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 14px; border-radius: var(--r-md);
+    background: var(--pink-50); border: 1px solid var(--pink-100);
+}
+.rcmp-month { min-width: 0; flex: 1; }
+.rcmp-mo { font-size: 0.8rem; font-weight: 700; color: var(--text); }
+.rcmp-sub { font-size: 0.64rem; color: var(--muted); margin-top: 3px; font-weight: 500; }
+.rcmp-right { text-align: right; flex-shrink: 0; }
+.rcmp-cyc { display: block; font-size: 0.8rem; font-weight: 700; }
+.rcmp-cyc.rcmp-na { font-size: 0.64rem; font-weight: 600; color: var(--muted); }
+.rcmp-delta {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 0.6rem; font-weight: 700; margin-top: 4px;
+}
+.rcmp-delta svg { width: 11px; height: 11px; }
+.rcmp-up { color: var(--orange-500); }
+.rcmp-down { color: var(--pink-500); }
+.rcmp-same { color: var(--green-500); }
+.rcmp-first, .rcmp-base { color: var(--muted); font-weight: 600; }
 
 /* ======= MOOD ======= */
 .mood-wrap { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
@@ -188,6 +325,7 @@ body {
 }
 .hist .dt { font-size: 0.8rem; font-weight: 700; color: var(--text); }
 .hist .mt { font-size: 0.68rem; color: var(--muted); margin-top: 3px; font-weight: 500; }
+.hist-actions { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
 .hist .x-btn {
     width: 30px; height: 30px; border-radius: 50%; border: none;
     background: rgba(198,40,40,0.08); color: #C62828; font-size: 0.8rem;
@@ -195,6 +333,14 @@ body {
     cursor: pointer; flex-shrink: 0;
 }
 .hist .x-btn:active { transform: scale(0.85); }
+.hist .edit-btn {
+    width: 30px; height: 30px; border-radius: 50%; border: none;
+    background: rgba(233,30,99,0.08); color: var(--pink-600);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0;
+}
+.hist .edit-btn:active { transform: scale(0.85); }
+.hist .edit-btn svg { width: 15px; height: 15px; }
 
 /* ======= SETTINGS ======= */
 .s-row {
