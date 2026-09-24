@@ -24,6 +24,7 @@ const I = {
     trendUp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
     trendDown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>',
     equal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
 };
 
 // ===== DATA STORE =====
@@ -72,12 +73,23 @@ const avgC = () => {
 };
 
 // Cycle normality classification (medical rule of thumb: 21–35 days is normal).
-// Returns { key, label, color, emoji } for a given cycle length in days.
+// Returns { key, label, color, icon } — `icon` is a small inline SVG line icon
+// tinted with currentColor, matching the app's line-icon style (no emoji).
 function cycleStatus(len) {
-    if (len == null) return { key: 'na', label: 'Data pertama', color: 'var(--muted)', emoji: '•' };
-    if (len < 21) return { key: 'short', label: 'Lebih cepat', color: 'var(--orange-500)', emoji: '⚠️' };
-    if (len > 35) return { key: 'long', label: 'Lebih lama', color: 'var(--orange-500)', emoji: '⚠️' };
-    return { key: 'normal', label: 'Normal', color: 'var(--green-500)', emoji: '✅' };
+    if (len == null) return { key: 'na', label: 'Data pertama', color: 'var(--muted)', icon: statusIcon('na') };
+    if (len < 21) return { key: 'short', label: 'Lebih cepat', color: 'var(--orange-500)', icon: statusIcon('warn') };
+    if (len > 35) return { key: 'long', label: 'Lebih lama', color: 'var(--orange-500)', icon: statusIcon('warn') };
+    return { key: 'normal', label: 'Normal', color: 'var(--green-500)', icon: statusIcon('ok') };
+}
+
+// Small inline status icons (14px), stroke = currentColor so they inherit the
+// surrounding text color. Keeps a consistent line-icon look across the app.
+function statusIcon(kind) {
+    const wrap = svg => `<svg class="sicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${svg}</svg>`;
+    if (kind === 'ok') return wrap('<circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/>');
+    if (kind === 'warn') return wrap('<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16.5" x2="12.01" y2="16.5"/>');
+    // 'na' — neutral dot-in-circle
+    return wrap('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/>');
 }
 
 // Compare actual cycle length vs the predicted/average cycle.
@@ -280,7 +292,7 @@ R.home = () => {
         <div class="cycle-analysis">
             <div class="ca-row">
                 <span class="ca-lbl">Siklus terakhir</span>
-                <span class="ca-val" style="color:${cStatus.color}">${cStatus.emoji} ${latestGap} hari — ${cStatus.label}</span>
+                <span class="ca-val" style="color:${cStatus.color}">${cStatus.icon} ${latestGap} hari — ${cStatus.label}</span>
             </div>
             ${devNote ? `<div class="ca-row">
                 <span class="ca-lbl">Vs prediksi (${c} hari)</span>
@@ -500,7 +512,7 @@ function renderRecap() {
             deltaHtml = `<span class="rcmp-delta rcmp-down">${I.trendDown} ${Math.abs(r.delta)} hari lebih pendek</span>`;
         }
         const cycText = r.cycle != null
-            ? `<span class="rcmp-cyc" style="color:${r.status.color}">${r.status.emoji} ${r.cycle} hari</span>`
+            ? `<span class="rcmp-cyc" style="color:${r.status.color}">${r.status.icon} ${r.cycle} hari</span>`
             : `<span class="rcmp-cyc rcmp-na">Belum ada pembanding</span>`;
         return `<div class="rcmp-row">
             <div class="rcmp-month">
@@ -545,7 +557,7 @@ R.history = () => {
                     ? `<span class="badge badge-upcoming">Akan datang</span>`
                     : `<span class="badge badge-done">Selesai</span>`;
             const cycBadge = cyc != null
-                ? `<span class="badge" style="background:${st.color}1a;color:${st.color}">${st.emoji} ${st.label}</span>`
+                ? `<span class="badge badge-icon" style="background:${st.color}1a;color:${st.color}">${st.icon} ${st.label}</span>`
                 : `<span class="badge badge-first">Data pertama</span>`;
             return `<div class="hist"><div style="flex:1;min-width:0">
                 <div class="dt">${fmtL(x.d)} — ${fmt(end)}</div>
@@ -553,7 +565,7 @@ R.history = () => {
                 <div class="hist-badges">${phaseBadge}${cycBadge}</div>
             </div><div class="hist-actions">
                 <button class="edit-btn" onclick="editP(${x.id})" aria-label="Edit record">${I.edit}</button>
-                <button class="x-btn" onclick="delP(${x.id})" aria-label="Hapus record">✕</button>
+                <button class="x-btn" onclick="delP(${x.id})" aria-label="Hapus record">${I.trash}</button>
             </div></div>`;
         }).join('')}
         <button class="btn btn-danger" onclick="clearAll()">Hapus Semua</button>
@@ -564,8 +576,8 @@ R.history = () => {
         <p style="font-size:0.76rem;color:var(--muted);line-height:1.7">
             Siklus haid normal berkisar <strong style="color:var(--pink-700)">21–35 hari</strong>
             (dihitung dari hari pertama haid ke hari pertama haid berikutnya).<br><br>
-            <span style="color:var(--green-500)">✅ Normal</span> — siklus dalam rentang 21–35 hari.<br>
-            <span style="color:var(--orange-500)">⚠️ Lebih cepat / lebih lama</span> — sesekali wajar, tapi kalau
+            <span class="legend-item" style="color:var(--green-500)">${statusIcon('ok')} Normal</span> — siklus dalam rentang 21–35 hari.<br>
+            <span class="legend-item" style="color:var(--orange-500)">${statusIcon('warn')} Lebih cepat / lebih lama</span> — sesekali wajar, tapi kalau
             sering berulang atau disertai keluhan, sebaiknya konsultasi ke bidan/dokter.<br><br>
             <em>Catatan: aplikasi ini bantu memantau pola, bukan pengganti pemeriksaan medis.</em>
         </p>

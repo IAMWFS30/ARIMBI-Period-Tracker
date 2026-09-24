@@ -188,6 +188,7 @@ body {
     padding: 3px 9px; border-radius: 20px;
     font-size: 0.62rem; font-weight: 700; line-height: 1.3;
 }
+.badge-icon .sicon { width: 12px; height: 12px; margin-right: 1px; }
 .badge-ongoing { background: rgba(233,30,99,0.12); color: var(--pink-600); }
 .badge-done { background: rgba(123,107,127,0.12); color: var(--muted); }
 .badge-upcoming { background: var(--purple-50); color: var(--purple-500); }
@@ -288,7 +289,8 @@ body {
 .rcmp-mo { font-size: 0.8rem; font-weight: 700; color: var(--text); }
 .rcmp-sub { font-size: 0.64rem; color: var(--muted); margin-top: 3px; font-weight: 500; }
 .rcmp-right { text-align: right; flex-shrink: 0; }
-.rcmp-cyc { display: block; font-size: 0.8rem; font-weight: 700; }
+.rcmp-cyc { display: inline-flex; align-items: center; gap: 4px; justify-content: flex-end; font-size: 0.8rem; font-weight: 700; }
+.rcmp-cyc .sicon { width: 14px; height: 14px; }
 .rcmp-cyc.rcmp-na { font-size: 0.64rem; font-weight: 600; color: var(--muted); }
 .rcmp-delta {
     display: inline-flex; align-items: center; gap: 3px;
@@ -333,6 +335,17 @@ body {
     cursor: pointer; flex-shrink: 0;
 }
 .hist .x-btn:active { transform: scale(0.85); }
+.hist .x-btn svg { width: 15px; height: 15px; }
+
+/* ======= INLINE STATUS ICONS ======= */
+/* Small line icons that sit inline with text and inherit its color. */
+.sicon {
+    width: 1em; height: 1em; vertical-align: -0.14em;
+    display: inline-block; flex-shrink: 0;
+}
+.legend-item { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; }
+.legend-item .sicon { width: 15px; height: 15px; }
+.ca-val .sicon { width: 15px; height: 15px; }
 .hist .edit-btn {
     width: 30px; height: 30px; border-radius: 50%; border: none;
     background: rgba(233,30,99,0.08); color: var(--pink-600);
