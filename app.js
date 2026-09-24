@@ -1,5 +1,5 @@
 // ============================================================
-// ARIMBI Period Tracker v3.1 — app.js
+// ARIMBI Period Tracker v3.2 — app.js
 // ============================================================
 
 // ===== SVG ICONS =====
@@ -683,7 +683,7 @@ R.settings = () => {
     <div class="card">
         <div class="card-title">${I.home} Tentang</div>
         <p style="font-size:0.78rem;color:var(--muted);line-height:1.7">
-            <strong style="color:var(--pink-700)">ARIMBI</strong> v3.1<br>
+            <strong style="color:var(--pink-700)">ARIMBI</strong> v3.2<br>
             Period Tracker — Made with 💖<br><br>
             Data tersimpan lokal di perangkatmu.<br>Tidak ada data yang dikirim ke server manapun.
         </p>
